@@ -68,47 +68,89 @@ export class SystemAudioReactor {
   public async connectSystemAudio(): Promise<boolean> {
     this.disconnect();
     try {
-      if (typeof window === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
-        throw new Error("getDisplayMedia is not supported in this environment");
+      if (typeof window === "undefined") {
+        throw new Error("Window environment required");
       }
 
-      // Prompt user to capture screen/window with system audio
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: "monitor",
-        } as MediaTrackConstraints,
-        audio: {
-          suppressLocalAudioPlayback: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        } as MediaTrackConstraints,
-        systemAudio: "include",
-      } as DisplayMediaStreamOptions & { systemAudio?: string });
+      let stream: MediaStream | null = null;
 
-      const audioTracks = stream.getAudioTracks();
-      if (audioTracks.length === 0) {
-        // User didn't check "Share system audio"
-        stream.getTracks().forEach((t) => t.stop());
-        alert("No system audio track detected! Please make sure to check 'Also share system audio' in the share dialog.");
+      // 1. Try getDisplayMedia (Electron loopback with setDisplayMediaRequestHandler)
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true,
+          });
+        } catch (displayErr) {
+          console.warn("[AudioReactor] getDisplayMedia loopback attempt failed:", displayErr);
+        }
+      }
+
+      // 2. Fallback: try getUserMedia with desktop constraints if in Electron
+      if ((!stream || stream.getAudioTracks().length === 0) && window.electronAPI?.isElectron) {
+        try {
+          stream = await (navigator.mediaDevices as unknown as {
+            getUserMedia: (c: unknown) => Promise<MediaStream>;
+          }).getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: "desktop",
+              },
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: "desktop",
+              },
+            },
+          });
+        } catch (electronErr) {
+          console.warn("[AudioReactor] Electron desktop audio attempt failed:", electronErr);
+        }
+      }
+
+      // 3. Fallback: try default audio input (Stereo Mix / loopback device / mic)
+      if (!stream || stream.getAudioTracks().length === 0) {
+        if (navigator.mediaDevices?.getUserMedia) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+              },
+            });
+          } catch (micErr) {
+            console.warn("[AudioReactor] Fallback audio input failed:", micErr);
+          }
+        }
+      }
+
+      if (!stream) {
+        console.warn("[AudioReactor] No stream available.");
         return false;
       }
 
-      // Stop video track immediately to conserve CPU & memory
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        stream.getTracks().forEach((t) => t.stop());
+        console.warn("[AudioReactor] No audio tracks found in stream.");
+        return false;
+      }
+
+      // Stop video track immediately to save 100% of video decoding resources
       stream.getVideoTracks().forEach((track) => track.stop());
 
       this.mediaStream = stream;
       this.sourceType = "SYSTEM_AUDIO";
       this.setupAudioGraph(stream);
 
-      // Handle user stopping the share from OS bar
       audioTracks[0].onended = () => {
         this.disconnect();
       };
 
       return true;
     } catch (err: unknown) {
-      console.warn("Failed to connect system audio:", err);
+      console.warn("[AudioReactor] Failed to connect system audio:", err);
       return false;
     }
   }

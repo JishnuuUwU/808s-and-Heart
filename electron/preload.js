@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   minimize: () => ipcRenderer.send("minimize-window"),
   close: () => ipcRenderer.send("close-window"),
   toggleMaximize: () => ipcRenderer.send("maximize-window"),
+  getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
 });

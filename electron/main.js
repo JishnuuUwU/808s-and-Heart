@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, session } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, session, desktopCapturer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
@@ -262,6 +262,29 @@ async function createWindow() {
     callback(true);
   });
 
+  if (session.defaultSession.setPermissionCheckHandler) {
+    session.defaultSession.setPermissionCheckHandler(() => true);
+  }
+
+  // Intercept getDisplayMedia and automatically connect to Windows WASAPI loopback audio
+  if (session.defaultSession.setDisplayMediaRequestHandler) {
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      desktopCapturer
+        .getSources({ types: ["screen"] })
+        .then((sources) => {
+          if (sources.length > 0) {
+            callback({ video: sources[0], audio: "loopback" });
+          } else {
+            callback({ audio: "loopback" });
+          }
+        })
+        .catch((err) => {
+          console.error("[CyberHeart App] desktopCapturer failed:", err);
+          callback({ audio: "loopback" });
+        });
+    });
+  }
+
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     mainWindow.focus();
@@ -319,6 +342,16 @@ ipcMain.on("maximize-window", () => {
     } else {
       mainWindow.maximize();
     }
+  }
+});
+
+ipcMain.handle("get-desktop-sources", async () => {
+  try {
+    const sources = await desktopCapturer.getSources({ types: ["screen"] });
+    return sources.map((s) => ({ id: s.id, name: s.name }));
+  } catch (err) {
+    console.error("[CyberHeart App] get-desktop-sources error:", err);
+    return [];
   }
 });
 

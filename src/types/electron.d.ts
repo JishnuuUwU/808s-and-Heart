@@ -5,6 +5,7 @@ export interface ElectronAPI {
   minimize: () => void;
   close: () => void;
   toggleMaximize: () => void;
+  getDesktopSources: () => Promise<Array<{ id: string; name: string }>>;
 }
 
 declare global {

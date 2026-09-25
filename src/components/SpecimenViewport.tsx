@@ -354,6 +354,7 @@ export default function SpecimenViewport({
     0, 0, 0, 0, 0,
   ]);
   const [audioRmsPercent, setAudioRmsPercent] = useState<number>(0);
+  const [isAudioConnecting, setIsAudioConnecting] = useState<boolean>(false);
 
   // HUD & Biomechanical Metrics
   const [activeTopology, setActiveTopology] = useState<GeometryTopology>(geometryType || "cyberHeart");
@@ -540,10 +541,22 @@ export default function SpecimenViewport({
       setSpectrumBars([0, 0, 0, 0, 0]);
       setAudioRmsPercent(0);
     } else {
-      const ok = await reactor.connectSystemAudio();
-      if (ok) {
-        setAudioSource("SYSTEM_AUDIO");
-        audioEngineRef.current?.init();
+      setIsAudioConnecting(true);
+      try {
+        const ok = await reactor.connectSystemAudio();
+        if (ok) {
+          setAudioSource("SYSTEM_AUDIO");
+          audioEngineRef.current?.init();
+        } else {
+          // Graceful fallback to microphone / Stereo Mix input
+          const fallback = await reactor.connectMicrophone();
+          if (fallback) {
+            setAudioSource("MIC_INPUT");
+            audioEngineRef.current?.init();
+          }
+        }
+      } finally {
+        setIsAudioConnecting(false);
       }
     }
   };
@@ -1565,16 +1578,21 @@ export default function SpecimenViewport({
             {/* LIVE COMPUTER AUDIO LOOPBACK SYNC */}
             <button
               onClick={handleToggleSystemAudio}
+              disabled={isAudioConnecting}
               title="Capture live sound from computer (Spotify, YouTube, games, DAW) to drive heart rate, ejection, and ripples"
               aria-label="Toggle computer system audio reactivity"
               className={`px-2 py-1 bg-black border transition-none font-semibold cursor-pointer focus-ring flex items-center gap-1 whitespace-nowrap ${
                 audioSource === "SYSTEM_AUDIO"
                   ? "border-emerald-400 text-emerald-300 bg-emerald-950/40 animate-pulse"
+                  : isAudioConnecting
+                  ? "border-amber-400 text-amber-300 animate-pulse"
                   : "border-neutral-700 text-neutral-200 hover:border-emerald-400 hover:text-emerald-300"
               }`}
             >
-              <Radio className={`w-2.5 h-2.5 ${audioSource === "SYSTEM_AUDIO" ? "text-emerald-400" : "text-neutral-400"}`} />
-              <span>[PC SOUND: {audioSource === "SYSTEM_AUDIO" ? "ON" : "OFF"}]</span>
+              <Radio className={`w-2.5 h-2.5 ${audioSource === "SYSTEM_AUDIO" ? "text-emerald-400" : isAudioConnecting ? "text-amber-400" : "text-neutral-400"}`} />
+              <span>
+                [PC SOUND: {isAudioConnecting ? "SYNCING..." : (audioSource === "SYSTEM_AUDIO" ? "ON" : "OFF")}]
+              </span>
             </button>
 
             {/* MICROPHONE / LINE-IN SYNC */}
