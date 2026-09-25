@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen, session } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 
 let mainWindow = null;
@@ -35,7 +36,6 @@ async function getStartupUrl() {
   if (process.env.ELECTRON_START_URL) {
     return process.env.ELECTRON_START_URL;
   }
-  // Check 3001 first (since 3000 was in use), then 3000
   if (await checkUrlAvailable("http://localhost:3001")) {
     return "http://localhost:3001/popup";
   }
@@ -46,25 +46,19 @@ async function getStartupUrl() {
 }
 
 async function createWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-
-  const winWidth = 460;
-  const winHeight = 580;
-
   mainWindow = new BrowserWindow({
-    width: winWidth,
-    height: winHeight,
-    x: width - winWidth - 30,
-    y: height - winHeight - 30,
-    frame: false,
-    transparent: false,
+    width: 480,
+    height: 640,
+    center: true,
+    frame: true,
+    show: true,
     backgroundColor: "#000000",
     alwaysOnTop: isPinnedOnTop,
     resizable: true,
-    minWidth: 360,
-    minHeight: 440,
+    minWidth: 380,
+    minHeight: 480,
     title: "CYBER_HEART // SPECIMEN_01",
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -83,6 +77,41 @@ async function createWindow() {
       return;
     }
     callback(true);
+  });
+
+  // Pipe Renderer console to Electron stdout
+  mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console L${level}] ${message}`);
+  });
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.moveTop();
+    if (isPinnedOnTop) {
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+    }
+    console.log("[CyberHeart Electron] Window is now VISIBLE and FOCUSED.");
+
+    // Take screenshot proof after 2 seconds of 3D WebGL rendering
+    setTimeout(async () => {
+      try {
+        const image = await mainWindow.capturePage();
+        const proofPath = "C:\\Users\\jishn\\.gemini\\antigravity-ide\\brain\\29aa076b-9d21-444f-856c-94395269980a\\electron_proof.png";
+        fs.writeFileSync(proofPath, image.toPNG());
+        console.log(`[CyberHeart Electron] PROOF_SAVED: ${proofPath} (${image.getSize().width}x${image.getSize().height})`);
+      } catch (err) {
+        console.error("[CyberHeart Electron] Error capturing screenshot:", err);
+      }
+    }, 2500);
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    console.log("[CyberHeart Electron] WebContents finished loading.");
+  });
+
+  mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
+    console.error(`[CyberHeart Electron] Failed to load: ${errorCode} - ${errorDescription}`);
   });
 
   const url = await getStartupUrl();
