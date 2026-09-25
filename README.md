@@ -467,17 +467,12 @@ Coordinates are mapped to a SVG viewBox ($130 \times 30$) and updated at $19\tex
 # 1. Install dependencies
 npm install
 
-# 2. Run the Next.js development server
-npm run dev
-
-# 3. Launch the standalone Windows desktop pop-up widget (in a separate terminal)
-npm run desktop
-
-# 4. Compile optimized production bundle
+# 2. Compile self-contained desktop bundle
 npm run build
 
-# 5. Start the compiled production server
-npm run start
+# 3. Launch the standalone Windows desktop application
+npm start
+# (Alternatively: double-click launch-desktop.bat in Windows Explorer)
 ```
 
 #### 6.3 Repository Layout

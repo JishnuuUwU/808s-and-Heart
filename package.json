@@ -4,10 +4,11 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "start": "electron .",
+    "app": "electron .",
     "desktop": "electron .",
+    "build": "next build",
+    "dev": "next dev",
     "lint": "eslint"
   },
   "dependencies": {
