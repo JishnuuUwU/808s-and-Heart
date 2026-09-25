@@ -49,9 +49,11 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 480,
     height: 640,
-    center: true,
+    x: 80,
+    y: 80,
     frame: true,
     show: true,
+    skipTaskbar: false,
     backgroundColor: "#000000",
     alwaysOnTop: isPinnedOnTop,
     resizable: true,
@@ -85,25 +87,27 @@ async function createWindow() {
   });
 
   mainWindow.once("ready-to-show", () => {
+    mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
     mainWindow.moveTop();
     if (isPinnedOnTop) {
-      mainWindow.setAlwaysOnTop(true, "screen-saver");
+      mainWindow.setAlwaysOnTop(true, "floating");
     }
-    console.log("[CyberHeart Electron] Window is now VISIBLE and FOCUSED.");
+    mainWindow.flashFrame(true);
+    console.log("[CyberHeart Electron] Window is now VISIBLE and FOCUSED on user desktop.");
 
-    // Take screenshot proof after 2 seconds of 3D WebGL rendering
+    // Capture diagnostic screenshot proof
     setTimeout(async () => {
       try {
         const image = await mainWindow.capturePage();
         const proofPath = "C:\\Users\\jishn\\.gemini\\antigravity-ide\\brain\\29aa076b-9d21-444f-856c-94395269980a\\electron_proof.png";
         fs.writeFileSync(proofPath, image.toPNG());
-        console.log(`[CyberHeart Electron] PROOF_SAVED: ${proofPath} (${image.getSize().width}x${image.getSize().height})`);
+        console.log(`[CyberHeart Electron] PROOF_SAVED: ${proofPath}`);
       } catch (err) {
         console.error("[CyberHeart Electron] Error capturing screenshot:", err);
       }
-    }, 2500);
+    }, 2000);
   });
 
   mainWindow.webContents.on("did-finish-load", () => {
@@ -130,7 +134,7 @@ ipcMain.handle("get-always-on-top", () => {
 ipcMain.handle("set-always-on-top", (event, flag) => {
   if (mainWindow) {
     isPinnedOnTop = Boolean(flag);
-    mainWindow.setAlwaysOnTop(isPinnedOnTop, "screen-saver");
+    mainWindow.setAlwaysOnTop(isPinnedOnTop, "floating");
     return isPinnedOnTop;
   }
   return false;
