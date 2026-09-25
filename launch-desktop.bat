@@ -1,4 +1,4 @@
 @echo off
-title Cyber-Heart Desktop Specimen
+title Cyber-Heart Biomechanical Specimen
 cd /d "%~dp0"
-start "" "%~dp0node_modules\electron\dist\electron.exe" .
+"%~dp0node_modules\electron\dist\electron.exe" .

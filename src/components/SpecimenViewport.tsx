@@ -1474,80 +1474,6 @@ export default function SpecimenViewport({
 
   return (
     <div className="relative w-full h-full min-h-[460px] sm:min-h-[500px] bg-black border border-neutral-800 select-none overflow-hidden group flex flex-col">
-      {/* WINDOWS DESKTOP POPUP HEADER / DRAG BAR */}
-      {(isPopupWindow || isElectronEnv) && (
-        <div
-          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-          className="w-full bg-neutral-950 border-b border-neutral-800 px-3 py-1.5 flex items-center justify-between text-[10px] font-mono tracking-widest text-neutral-400 select-none z-30"
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                audioSource !== "IDLE" ? "bg-emerald-400 animate-pulse" : "bg-red-500 animate-pulse"
-              }`}
-            />
-            <span className="font-bold text-white tracking-wider">
-              CYBER_HEART // WIN_POPUP
-            </span>
-            {isAlwaysOnTop && (
-              <span className="text-[8px] px-1 py-0.2 border border-emerald-500/60 bg-emerald-950/40 text-emerald-400">
-                ON_TOP
-              </span>
-            )}
-          </div>
-
-          <div
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-            className="flex items-center gap-1"
-          >
-            {/* Pin / Always On Top Toggle */}
-            <button
-              onClick={handleToggleAlwaysOnTop}
-              title={isAlwaysOnTop ? "Always-On-Top: ACTIVE (Click to unpin)" : "Always-On-Top: OFF (Click to pin on top)"}
-              className={`px-1.5 py-0.5 border text-[9px] flex items-center gap-1 cursor-pointer ${
-                isAlwaysOnTop
-                  ? "border-emerald-500 text-emerald-400 bg-emerald-950/50"
-                  : "border-neutral-800 text-neutral-500 hover:text-white"
-              }`}
-            >
-              {isAlwaysOnTop ? <Pin className="w-2.5 h-2.5 fill-emerald-400" /> : <PinOff className="w-2.5 h-2.5" />}
-              <span className="hidden xs:inline">PIN</span>
-            </button>
-
-            {/* Minimize Window */}
-            {isElectronEnv && (
-              <button
-                onClick={handleMinimizeWindow}
-                title="Minimize window"
-                className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
-              >
-                <Minus className="w-3 h-3" />
-              </button>
-            )}
-
-            {/* Maximize Window */}
-            {isElectronEnv && (
-              <button
-                onClick={handleMaximizeWindow}
-                title="Maximize / Restore window"
-                className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
-              >
-                <Square className="w-2.5 h-2.5" />
-              </button>
-            )}
-
-            {/* Close Window */}
-            <button
-              onClick={handleCloseWindow}
-              title="Close popup"
-              className="p-1 hover:bg-red-900/60 text-neutral-400 hover:text-red-300 cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* 4-Corner Brutalist Crosshairs (+) */}
       <span aria-hidden="true" className="absolute top-2 left-2 text-xs font-mono text-neutral-600 group-hover:text-white pointer-events-none z-10 select-none">+</span>
       <span aria-hidden="true" className="absolute top-2 right-2 text-xs font-mono text-neutral-600 group-hover:text-white pointer-events-none z-10 select-none">+</span>
@@ -1555,7 +1481,7 @@ export default function SpecimenViewport({
       <span aria-hidden="true" className="absolute bottom-2 right-2 text-xs font-mono text-neutral-600 group-hover:text-white pointer-events-none z-10 select-none">+</span>
 
       {/* TOP HUD: Single-Line Biomechanical Status Bar */}
-      <div className={`absolute ${isPopupWindow || isElectronEnv ? "top-10" : "top-3"} left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none font-mono text-[10px] uppercase tracking-wider`}>
+      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none font-mono text-[10px] uppercase tracking-wider">
         {/* Left: Cardiac Hemodynamics */}
         <div className="flex items-center gap-1.5 min-w-0">
           <span

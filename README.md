@@ -305,53 +305,49 @@ The specimen's autonomic pacemaker smoothly glides toward $\text{BPM}_t$, synchr
 
 ### 4. Windows Desktop Pop-Up Window & Window Management
 
-#### 4.1 Electron Native Desktop Process Architecture
+#### 4.1 Native Windows Desktop Application Architecture
 
-The desktop edition separates tasks across two isolated processes:
+The desktop application operates as a full native Windows program:
 
 ```
-+-------------------------------------------------------+
-|                ELECTRON MAIN PROCESS                  |
-|                 (electron/main.js)                    |
-|  - BrowserWindow instantiation (460x580)              |
-|  - Frameless display (`frame: false`)                 |
-|  - Always-On-Top controller                           |
-|  - System audio permission handler                    |
-+---------------------------+---------------------------+
-                            |  IPC Protocol (preload.js)
-                            v
-+-------------------------------------------------------+
-|              CHROMIUM RENDERER PROCESS                |
-|               (Next.js App / Client)                  |
-|  - SpecimenViewport WebGL instance                    |
-|  - Web Audio Context & Analyser                       |
-|  - CSS Drag regions (`-webkit-app-region: drag`)      |
-|  - UI State Synchronization                           |
-+-------------------------------------------------------+
++-------------------------------------------------------------------------+
+|                         ELECTRON MAIN PROCESS                           |
+|                          (electron/main.js)                             |
+|  - Native Windows Frame (`frame: true`) with OS title bar & controls     |
+|  - Windows Status Bar / Notification Area System Tray Icon              |
+|  - Single-Instance Mutex Lock (`app.requestSingleInstanceLock`)         |
+|  - HWND_TOPMOST Always-On-Top Layering Controller                       |
+|  - Local In-Process HTTP Loopback Server (127.0.0.1:0)                   |
++-----------------------------------+-------------------------------------+
+                                    |  IPC Protocol (preload.js)
+                                    v
++-------------------------------------------------------------------------+
+|                       CHROMIUM RENDERER PROCESS                         |
+|                         (Next.js App / Client)                          |
+|  - 3D Anatomical WebGL Wireframe Canvas                                 |
+|  - Real-Time Autonomic Pacemaker & EKG Generator                        |
+|  - System Audio Loopback Reactor & 512-Point FFT                        |
+|  - Saturated Analog 808 Sub-Bass Audio Engine                           |
++-------------------------------------------------------------------------+
 ```
 
-Preload script (`electron/preload.js`) exposes a secure, typed IPC bridge to the renderer:
+#### 4.2 Windows Status Bar (System Tray) Integration
 
-```typescript
-interface ElectronAPI {
-  isElectron: boolean;
-  getAlwaysOnTop: () => Promise<boolean>;
-  setAlwaysOnTop: (flag: boolean) => Promise<boolean>;
-  minimize: () => void;
-  close: () => void;
-  toggleMaximize: () => void;
-}
-```
+A dedicated status icon is registered in the Windows status bar (system notification area near the taskbar clock):
+- **Click**: Immediately restores, pops up, and brings the Cyber-Heart window to the front.
+- **Hover Tooltip**: Displays live status and pinning telemetry (`Cyber-Heart Specimen (Always-On-Top: ON/OFF)`).
+- **Context Menu (Right-Click)**:
+  - `Show Specimen (Pop Up On Top)`: Elevates window above all running desktop programs.
+  - `Always On Top` (Checkbox): Dynamically toggles topmost pinning state.
+  - `Expand (Maximize / Restore)`: Expands window to fill display or returns to widget size.
+  - `Minimize to Status Bar`: Hides window while preserving sound reactivity.
+  - `Exit Application`: Cleanly stops audio synthesis and releases all system resources.
 
-#### 4.2 Always-On-Top Layering Mechanism
+#### 4.3 Window Controls & Always-On-Top Layering
 
-In the native Windows desktop client, always-on-top positioning is asserted directly using the standard Win32 `HWND_TOPMOST` extended window style:
-
-```javascript
-mainWindow.setAlwaysOnTop(isAlwaysOnTop);
-```
-
-This guarantees the window remains floating above standard full-screen applications, games, terminals, and audio workstations without being obscured during window switching. The state can be dynamically toggled at runtime using the `[PIN]` control on the header bar or through the `window.electronAPI.setAlwaysOnTop` IPC method.
+- **Native Title Bar Controls**: Equipped with standard Windows **Minimize** (`_`), **Maximize / Expand** (`□`), and **Close** (`✕`) buttons.
+- **Dynamic Resizing**: Windows resizing borders allow smooth drag-resizing from any edge or corner with minimum boundary clamping ($360 \times 460$).
+- **Always-On-Top**: Asserted using the Win32 `HWND_TOPMOST` extended window style (`mainWindow.setAlwaysOnTop(isPinnedOnTop)`), ensuring the pop-up window remains floating over full-screen editors, DAW software, or browsers without getting lost.
 
 #### 4.3 Chromium Document Picture-in-Picture (PiP) Implementation
 

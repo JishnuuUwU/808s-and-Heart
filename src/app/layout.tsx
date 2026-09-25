@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CYBER_HEART // SPECIMEN_01",
+  title: "Cyber-Heart // Biomechanical Specimen",
   description:
     "Standalone 3D Anatomical Cyber-Heart Wireframe Biomechanical Specimen with Saturated Analog 808 Sub-Bass Audio Engine and Kelvin-Voigt Physics",
 };

@@ -1,11 +1,27 @@
-const { app, BrowserWindow, ipcMain, screen, session } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, session } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
 
 let mainWindow = null;
+let tray = null;
 let internalServer = null;
 let isPinnedOnTop = true;
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.setAlwaysOnTop(isPinnedOnTop);
+      mainWindow.moveTop();
+    }
+  });
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -22,8 +38,7 @@ const MIME_TYPES = {
 };
 
 /**
- * Starts an in-process, self-contained loopback server on 127.0.0.1 with an
- * ephemeral OS-assigned port. This removes all dependencies on external web servers.
+ * In-process HTTP loopback server serving the static Next.js production build.
  */
 function startInternalAppServer(outDir) {
   return new Promise((resolve, reject) => {
@@ -31,7 +46,6 @@ function startInternalAppServer(outDir) {
       try {
         const rawPath = decodeURI(req.url.split("?")[0]);
         let safePath = rawPath === "/" || rawPath === "" ? "/index.html" : rawPath;
-
         let targetPath = path.join(outDir, safePath);
 
         if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
@@ -76,53 +90,160 @@ function startInternalAppServer(outDir) {
 
 async function getAppEntryUrl() {
   const outDir = path.join(__dirname, "../out");
-
   if (fs.existsSync(path.join(outDir, "index.html"))) {
     try {
       const { server, url } = await startInternalAppServer(outDir);
       internalServer = server;
-      console.log(`[CyberHeart App] Internal desktop app server active at ${url}`);
       return url;
     } catch (err) {
-      console.error("[CyberHeart App] Failed to start internal server:", err);
+      console.error("[CyberHeart App] Server start failed:", err);
     }
   }
 
   if (process.env.ELECTRON_START_URL) {
     return process.env.ELECTRON_START_URL;
   }
-  return "http://localhost:3001";
+  return "http://localhost:3000";
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Cyber-Heart Specimen",
+      enabled: false,
+    },
+    { type: "separator" },
+    {
+      label: "Show Specimen (Pop Up On Top)",
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+          mainWindow.setAlwaysOnTop(isPinnedOnTop);
+          mainWindow.moveTop();
+        }
+      },
+    },
+    {
+      label: "Always On Top",
+      type: "checkbox",
+      checked: isPinnedOnTop,
+      click: (item) => {
+        isPinnedOnTop = item.checked;
+        if (mainWindow) {
+          mainWindow.setAlwaysOnTop(isPinnedOnTop);
+          if (isPinnedOnTop) mainWindow.moveTop();
+        }
+      },
+    },
+    {
+      label: "Expand (Maximize / Restore)",
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+          } else {
+            mainWindow.maximize();
+          }
+        }
+      },
+    },
+    {
+      label: "Minimize to Status Bar",
+      click: () => {
+        if (mainWindow) mainWindow.minimize();
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Exit Application",
+      click: () => {
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip(`Cyber-Heart Specimen (Always-On-Top: ${isPinnedOnTop ? "ON" : "OFF"})`);
+}
+
+function createTrayIcon() {
+  const icoPath = path.join(__dirname, "tray-icon.ico");
+  const pngPath = path.join(__dirname, "tray-icon.png");
+
+  let trayImage;
+  if (fs.existsSync(icoPath)) {
+    trayImage = nativeImage.createFromPath(icoPath);
+  } else if (fs.existsSync(pngPath)) {
+    trayImage = nativeImage.createFromPath(pngPath);
+  } else {
+    trayImage = nativeImage.createEmpty();
+  }
+
+  try {
+    tray = new Tray(trayImage);
+    updateTrayMenu();
+
+    // Clicking tray icon restores & brings app to front
+    tray.on("click", () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.setAlwaysOnTop(isPinnedOnTop);
+        mainWindow.moveTop();
+      }
+    });
+
+    tray.on("double-click", () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  } catch (err) {
+    console.warn("[CyberHeart App] Could not create system tray icon:", err);
+  }
 }
 
 async function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { workArea } = primaryDisplay;
 
-  // Compact floating popup window dimensions
-  const winWidth = 440;
-  const winHeight = 620;
+  // Window geometry
+  const winWidth = 460;
+  const winHeight = 660;
 
-  // Position centrally on the user's primary monitor
+  // Center on screen
   const x = Math.max(workArea.x, Math.round(workArea.x + (workArea.width - winWidth) / 2));
   const y = Math.max(workArea.y, Math.round(workArea.y + (workArea.height - winHeight) / 2));
+
+  const appIconPath = path.join(__dirname, "icon.ico");
 
   mainWindow = new BrowserWindow({
     width: winWidth,
     height: winHeight,
     x: x,
     y: y,
-    frame: true,
-    show: false,
-    skipTaskbar: false,
-    backgroundColor: "#000000",
-    alwaysOnTop: true,
+    frame: true, // Standard native Windows app frame
+    show: true,  // Immediately visible on launch
+    alwaysOnTop: isPinnedOnTop, // Standard Win32 HWND_TOPMOST
     resizable: true,
     minimizable: true,
-    closable: true,
     maximizable: true,
-    minWidth: 320,
-    minHeight: 440,
-    title: "CYBER_HEART // SPECIMEN_01",
+    closable: true,
+    minWidth: 360,
+    minHeight: 460,
+    title: "Cyber-Heart // Biomechanical Specimen",
+    backgroundColor: "#000000",
+    icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
+    skipTaskbar: false, // Visible in Windows Taskbar
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -131,63 +252,32 @@ async function createWindow() {
     },
   });
 
-  // Enable display media / desktop audio capture permission
+  // Force foreground focus & elevation on creation
+  mainWindow.setAlwaysOnTop(true);
+  mainWindow.moveTop();
+  mainWindow.focus();
+
+  // Allow display media / desktop audio loopback capture
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (
-      permission === "media" ||
-      permission === "display-capture" ||
-      permission === "audio-capture"
-    ) {
-      callback(true);
-      return;
-    }
     callback(true);
   });
 
-  mainWindow.webContents.on("console-message", (event, level, message) => {
-    console.log(`[Renderer Console L${level}] ${message}`);
-  });
-
-  const showAndElevateWindow = () => {
-    if (!mainWindow) return;
+  mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     mainWindow.focus();
-    mainWindow.setAlwaysOnTop(true); // Direct Win32 HWND_TOPMOST without macOS level strings
+    mainWindow.setAlwaysOnTop(isPinnedOnTop);
     mainWindow.moveTop();
     mainWindow.flashFrame(true);
-    console.log(`[CyberHeart App] Popup window VISIBLE and TOPMOST at (${x}, ${y}) [${winWidth}x${winHeight}].`);
-  };
-
-  mainWindow.once("ready-to-show", () => {
-    showAndElevateWindow();
-
-    // Diagnostic screenshot proof
-    setTimeout(async () => {
-      try {
-        if (!mainWindow) return;
-        const image = await mainWindow.capturePage();
-        const proofPath = "C:\\Users\\jishn\\.gemini\\antigravity-ide\\brain\\29aa076b-9d21-444f-856c-94395269980a\\desktop_app_proof.png";
-        fs.writeFileSync(proofPath, image.toPNG());
-        console.log(`[CyberHeart App] DESKTOP_PROOF_SAVED: ${proofPath}`);
-      } catch (err) {
-        console.error("[CyberHeart App] Error capturing screenshot:", err);
-      }
-    }, 2000);
   });
 
   mainWindow.webContents.on("did-finish-load", () => {
-    console.log("[CyberHeart App] Native desktop app interface loaded.");
-    if (mainWindow && !mainWindow.isVisible()) {
-      showAndElevateWindow();
+    if (mainWindow) {
+      mainWindow.setAlwaysOnTop(isPinnedOnTop);
+      mainWindow.moveTop();
     }
   });
 
-  mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
-    console.error(`[CyberHeart App] Failed to load: ${errorCode} - ${errorDescription}`);
-  });
-
   const url = await getAppEntryUrl();
-  console.log(`[CyberHeart App] Loading ${url}`);
   mainWindow.loadURL(url);
 
   mainWindow.on("closed", () => {
@@ -199,20 +289,19 @@ async function createWindow() {
   });
 }
 
+// IPC Handlers
 ipcMain.handle("get-always-on-top", () => {
-  return mainWindow ? mainWindow.isAlwaysOnTop() : isPinnedOnTop;
+  return isPinnedOnTop;
 });
 
 ipcMain.handle("set-always-on-top", (event, flag) => {
+  isPinnedOnTop = Boolean(flag);
   if (mainWindow) {
-    isPinnedOnTop = Boolean(flag);
-    mainWindow.setAlwaysOnTop(isPinnedOnTop); // Standard Win32 HWND_TOPMOST
-    if (isPinnedOnTop) {
-      mainWindow.moveTop();
-    }
-    return isPinnedOnTop;
+    mainWindow.setAlwaysOnTop(isPinnedOnTop);
+    if (isPinnedOnTop) mainWindow.moveTop();
   }
-  return false;
+  updateTrayMenu();
+  return isPinnedOnTop;
 });
 
 ipcMain.on("minimize-window", () => {
@@ -233,34 +322,23 @@ ipcMain.on("maximize-window", () => {
   }
 });
 
-process.on("uncaughtException", (err) => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[UncaughtException] ${err.stack || err}\n`);
-});
-
-process.on("unhandledRejection", (reason) => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[UnhandledRejection] ${reason}\n`);
-});
-
-app.on("before-quit", () => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppBeforeQuit] event triggered\n`);
-});
-
-app.on("will-quit", () => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppWillQuit] event triggered\n`);
-});
-
 app.whenReady().then(() => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppReady] started\n`);
+  createTrayIcon();
   createWindow();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
   });
 });
 
 app.on("window-all-closed", () => {
-  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[WindowAllClosed] event triggered\n`);
   if (process.platform !== "darwin") {
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
     app.quit();
   }
 });
