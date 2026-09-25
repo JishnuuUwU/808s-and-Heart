@@ -345,13 +345,13 @@ interface ElectronAPI {
 
 #### 4.2 Always-On-Top Layering Mechanism
 
-In the native Windows desktop client, always-on-top positioning is asserted using the OS window manager's `screen-saver` priority level:
+In the native Windows desktop client, always-on-top positioning is asserted directly using the standard Win32 `HWND_TOPMOST` extended window style:
 
 ```javascript
-mainWindow.setAlwaysOnTop(isAlwaysOnTop, "screen-saver");
+mainWindow.setAlwaysOnTop(isAlwaysOnTop);
 ```
 
-This guarantees the window remains visible above standard full-screen applications, games, terminals, and audio workstations without being obscured during window switching.
+This guarantees the window remains floating above standard full-screen applications, games, terminals, and audio workstations without being obscured during window switching. The state can be dynamically toggled at runtime using the `[PIN]` control on the header bar or through the `window.electronAPI.setAlwaysOnTop` IPC method.
 
 #### 4.3 Chromium Document Picture-in-Picture (PiP) Implementation
 
@@ -462,18 +462,19 @@ Coordinates are mapped to a SVG viewBox ($130 \times 30$) and updated at $19\tex
 - **Audio Output**: System audio device running at 44.1 kHz or 48.0 kHz
 
 #### 6.2 CLI Commands & Runtime Modes
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Compile self-contained desktop bundle
-npm run build
-
-# 3. Launch the standalone Windows desktop application
-npm start
-# (Alternatively: double-click launch-desktop.bat in Windows Explorer)
-```
+ 
+ ```bash
+ # 1. Install dependencies
+ npm install
+ 
+ # 2. Compile self-contained desktop bundle
+ npm run build
+ 
+ # 3. Launch the standalone Windows desktop pop-up application
+ npm start
+ # (Or double-click launch-desktop.bat in repository root,
+ #  or double-click Cyber-Heart.lnk on your Windows Desktop)
+ ```
 
 #### 6.3 Repository Layout
 

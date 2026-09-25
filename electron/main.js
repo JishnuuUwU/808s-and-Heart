@@ -34,7 +34,6 @@ function startInternalAppServer(outDir) {
 
         let targetPath = path.join(outDir, safePath);
 
-        // If path is a directory or missing extension, check for .html
         if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
           targetPath = path.join(targetPath, "index.html");
         } else if (!fs.existsSync(targetPath) && fs.existsSync(`${targetPath}.html`)) {
@@ -42,7 +41,6 @@ function startInternalAppServer(outDir) {
         }
 
         if (!fs.existsSync(targetPath)) {
-          // Fallback to index.html for client-side routing
           targetPath = path.join(outDir, "index.html");
         }
 
@@ -90,7 +88,6 @@ async function getAppEntryUrl() {
     }
   }
 
-  // Fallback to external dev URL if out/ not built
   if (process.env.ELECTRON_START_URL) {
     return process.env.ELECTRON_START_URL;
   }
@@ -98,19 +95,33 @@ async function getAppEntryUrl() {
 }
 
 async function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { workArea } = primaryDisplay;
+
+  // Compact floating popup window dimensions
+  const winWidth = 440;
+  const winHeight = 620;
+
+  // Position centrally on the user's primary monitor
+  const x = Math.max(workArea.x, Math.round(workArea.x + (workArea.width - winWidth) / 2));
+  const y = Math.max(workArea.y, Math.round(workArea.y + (workArea.height - winHeight) / 2));
+
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 640,
-    x: 80,
-    y: 80,
+    width: winWidth,
+    height: winHeight,
+    x: x,
+    y: y,
     frame: true,
-    show: true,
+    show: false,
     skipTaskbar: false,
     backgroundColor: "#000000",
-    alwaysOnTop: isPinnedOnTop,
+    alwaysOnTop: true,
     resizable: true,
-    minWidth: 380,
-    minHeight: 480,
+    minimizable: true,
+    closable: true,
+    maximizable: true,
+    minWidth: 320,
+    minHeight: 440,
     title: "CYBER_HEART // SPECIMEN_01",
     autoHideMenuBar: true,
     webPreferences: {
@@ -137,20 +148,23 @@ async function createWindow() {
     console.log(`[Renderer Console L${level}] ${message}`);
   });
 
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.restore();
+  const showAndElevateWindow = () => {
+    if (!mainWindow) return;
     mainWindow.show();
     mainWindow.focus();
+    mainWindow.setAlwaysOnTop(true); // Direct Win32 HWND_TOPMOST without macOS level strings
     mainWindow.moveTop();
-    if (isPinnedOnTop) {
-      mainWindow.setAlwaysOnTop(true, "floating");
-    }
     mainWindow.flashFrame(true);
-    console.log("[CyberHeart App] Native desktop window is VISIBLE and FOCUSED.");
+    console.log(`[CyberHeart App] Popup window VISIBLE and TOPMOST at (${x}, ${y}) [${winWidth}x${winHeight}].`);
+  };
 
-    // Capture diagnostic proof
+  mainWindow.once("ready-to-show", () => {
+    showAndElevateWindow();
+
+    // Diagnostic screenshot proof
     setTimeout(async () => {
       try {
+        if (!mainWindow) return;
         const image = await mainWindow.capturePage();
         const proofPath = "C:\\Users\\jishn\\.gemini\\antigravity-ide\\brain\\29aa076b-9d21-444f-856c-94395269980a\\desktop_app_proof.png";
         fs.writeFileSync(proofPath, image.toPNG());
@@ -163,6 +177,9 @@ async function createWindow() {
 
   mainWindow.webContents.on("did-finish-load", () => {
     console.log("[CyberHeart App] Native desktop app interface loaded.");
+    if (mainWindow && !mainWindow.isVisible()) {
+      showAndElevateWindow();
+    }
   });
 
   mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
@@ -189,7 +206,10 @@ ipcMain.handle("get-always-on-top", () => {
 ipcMain.handle("set-always-on-top", (event, flag) => {
   if (mainWindow) {
     isPinnedOnTop = Boolean(flag);
-    mainWindow.setAlwaysOnTop(isPinnedOnTop, "floating");
+    mainWindow.setAlwaysOnTop(isPinnedOnTop); // Standard Win32 HWND_TOPMOST
+    if (isPinnedOnTop) {
+      mainWindow.moveTop();
+    }
     return isPinnedOnTop;
   }
   return false;
@@ -213,7 +233,24 @@ ipcMain.on("maximize-window", () => {
   }
 });
 
+process.on("uncaughtException", (err) => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[UncaughtException] ${err.stack || err}\n`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[UnhandledRejection] ${reason}\n`);
+});
+
+app.on("before-quit", () => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppBeforeQuit] event triggered\n`);
+});
+
+app.on("will-quit", () => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppWillQuit] event triggered\n`);
+});
+
 app.whenReady().then(() => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[AppReady] started\n`);
   createWindow();
 
   app.on("activate", () => {
@@ -222,6 +259,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  fs.appendFileSync(path.join(__dirname, "../electron_exit.log"), `[WindowAllClosed] event triggered\n`);
   if (process.platform !== "darwin") {
     app.quit();
   }

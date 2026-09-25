@@ -18,6 +18,7 @@ import {
   Mic,
   Music,
   Minus,
+  Square,
   X,
 } from "lucide-react";
 import { SystemAudioReactor, AudioSourceType } from "@/lib/audioReactor";
@@ -511,6 +512,12 @@ export default function SpecimenViewport({
   const handleMinimizeWindow = () => {
     if (typeof window !== "undefined" && window.electronAPI?.isElectron) {
       window.electronAPI.minimize();
+    }
+  };
+
+  const handleMaximizeWindow = () => {
+    if (typeof window !== "undefined" && window.electronAPI?.isElectron) {
+      window.electronAPI.toggleMaximize();
     }
   };
 
@@ -1515,6 +1522,17 @@ export default function SpecimenViewport({
                 className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
               >
                 <Minus className="w-3 h-3" />
+              </button>
+            )}
+
+            {/* Maximize Window */}
+            {isElectronEnv && (
+              <button
+                onClick={handleMaximizeWindow}
+                title="Maximize / Restore window"
+                className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
+              >
+                <Square className="w-2.5 h-2.5" />
               </button>
             )}
 

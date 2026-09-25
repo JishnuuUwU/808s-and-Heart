@@ -1,4 +1,4 @@
 @echo off
-title Launching Cyber-Heart Desktop Specimen...
+title Cyber-Heart Desktop Specimen
 cd /d "%~dp0"
-npm run desktop
+start "" "%~dp0node_modules\electron\dist\electron.exe" .
